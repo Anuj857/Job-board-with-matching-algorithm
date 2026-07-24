@@ -5,18 +5,15 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const db = require('./config/db');
-const pdf = require('pdf-parse'); // PDF Text extraction ke liye naya package
-
+const pdf = require('pdf-parse'); 
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const verifyToken = require('./middlewares/authMiddleware');
-
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_development_key';
-
 const app = express();
+
 app.use(cors());
 app.use(express.json());
-
 // --- Configure Multer for File Uploads ---
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -75,14 +72,14 @@ app.post('/api/applications', verifyToken, upload.single('resume'), async (req, 
     const candidateId = req.user.userId;
     const userRole = req.user.role; 
 
-    // 👉 EMPLOYER CHECK: Employers cannot apply for jobs
+    //  EMPLOYER CHECK: Employers cannot apply for jobs
     if (userRole === 'employer') {
         return res.status(403).json({ error: 'Employers cannot apply for jobs. Please use a candidate account.' });
     }
 
     const jobId = req.body.jobId || req.body.job_id;
     let matchScore = 0; 
-    let extractedPhone = 'N/A'; // Default value agar phone na mile
+    let extractedPhone = 'N/A';
 
     if (!jobId) return res.status(400).json({ error: "Missing Job ID." });
 
@@ -99,7 +96,7 @@ app.post('/api/applications', verifyToken, upload.single('resume'), async (req, 
     if (req.file) {
         const absoluteFilePath = path.resolve(req.file.path); 
         
-        // 👉 PHONE EXTRACTION: Read PDF and extract Phone Number
+        //  PHONE EXTRACTION: Read PDF and extract Phone Number
         try {
             const dataBuffer = fs.readFileSync(absoluteFilePath);
             const pdfData = await pdf(dataBuffer);
@@ -113,7 +110,7 @@ app.post('/api/applications', verifyToken, upload.single('resume'), async (req, 
             console.error("PDF Parsing Error (Phone extraction):", err.message);
         }
 
-        // 👉 AI MATCHING: Send to Python Server
+        //  AI MATCHING: Send to Python Server
         if (jobRequirements.length > 0) {
             try {
                 const pythonResponse = await axios.post('http://localhost:8000/parse-and-match', {
@@ -128,7 +125,7 @@ app.post('/api/applications', verifyToken, upload.single('resume'), async (req, 
     }
 
     try {
-        // 👉 SAVE APPLICATION WITH PHONE NUMBER
+        //  SAVE APPLICATION WITH PHONE NUMBER
         const queryText = `INSERT INTO applications (job_id, candidate_id, status, match_score, phone) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
         const result = await db.query(queryText, [jobId, candidateId, 'applied', matchScore, extractedPhone]);
         res.status(201).json({ message: "Successfully applied!", application: result.rows[0] });
@@ -149,7 +146,7 @@ app.get('/api/applications', verifyToken, async (req, res) => {
         let queryParams = [];
 
         if (userRole === 'employer') {
-            // 👉 EMPLOYER: Get applications for their jobs with clean candidate mapping
+            //  EMPLOYER: Get applications for their jobs with clean candidate mapping
             queryText = `
                 SELECT 
                     a.id, 
@@ -169,7 +166,7 @@ app.get('/api/applications', verifyToken, async (req, res) => {
             `;
             queryParams = [userId];
         } else {
-            // 👉 CANDIDATE: Show only their own applications
+            //  CANDIDATE: Show only their own applications
             queryText = `
                 SELECT 
                     a.id, 
